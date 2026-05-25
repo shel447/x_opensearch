@@ -112,6 +112,43 @@ function highlightLines(details) {
   return lines;
 }
 
+function detailContentLine(detail, line = null) {
+  const reason = detail.interference_reason || line?.reason || "";
+  const content = line ? `L${line.line}: ${line.text}` : detail.field_value;
+  if (!content) return "";
+  return reason ? `${content}\n  原因：${reason}` : content;
+}
+
+function interferenceExplanationLines(caseItem) {
+  const lines = [];
+  for (const detail of caseItem.interference_hit_details || []) {
+    const matchedLines = detail.matched_lines || [];
+    if (matchedLines.length) {
+      for (const line of matchedLines) {
+        const content = detailContentLine(detail, line);
+        if (content) lines.push(content);
+      }
+    } else {
+      const content = detailContentLine(detail);
+      if (content) lines.push(content);
+    }
+  }
+  return lines;
+}
+
+function compactExplanation(caseItem) {
+  const explanations = [];
+  const interference = interferenceExplanationLines(caseItem);
+  if (interference.length) {
+    explanations.push(["误命中说明：", shortLines(interference)].join("\n"));
+  }
+  if ((caseItem.missing_ids || []).length) {
+    explanations.push(`漏命中：${caseItem.missing_ids.join(", ")}`);
+  }
+  if (!explanations.length) return caseItem.verdict;
+  return explanations.join("\n");
+}
+
 function compactCell(caseItem) {
   if (!caseItem) return "不适用\n说明：没有对应实测 case";
   if (caseItem.error) {
@@ -137,7 +174,7 @@ function compactCell(caseItem) {
     shortLines(highlights, 3) || "无高亮",
     "",
     `结论：${caseItem.recommendation}`,
-    `说明：${caseItem.verdict}`,
+    `说明：${compactExplanation(caseItem)}`,
   ].join("\n");
 }
 
