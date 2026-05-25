@@ -169,17 +169,31 @@ function writeCompactSheet(caseLookup) {
     { group: "纯IP 10.10.10.1", label: "term（精确）", inputId: "ipv4_exact", mode: "term" },
     { group: "纯IP 10.10.10.1", label: "match_phrase（精确）", inputId: "ipv4_exact", mode: "match_phrase" },
     { group: "纯IP 10.10.10.1", label: "wildcard（包含）", inputId: "ipv4_exact", mode: "wildcard" },
-    { group: "纯IP 10.10.10.1", label: "推荐组合", recommendedCaseId: "rec_structured_ipv4_exact", configRecommendedCaseId: "rec_config_ipv4_exact" },
+    {
+      group: "纯IP 10.10.10.1",
+      label: "结构化：term(ip_address/ip_keyword)\n+ match_phrase(text字段)\n配置：match_phrase(config)\n+ 应用层行号",
+      recommendedCaseId: "rec_structured_ipv4_exact",
+      configRecommendedCaseId: "rec_config_ipv4_exact",
+    },
     { group: "IPv6 2001:db8::1", label: "term（精确）", inputId: "ipv6_exact", mode: "term" },
     { group: "前导0 IP 010.010.010.001", label: "term（精确）", inputId: "ipv4_leading_zero", mode: "term" },
     { group: "纯MAC 4a:a9:59:4b:b6:2f", label: "match（精确意图）", inputId: "mac_cross_4a", mode: "match" },
     { group: "纯MAC 4a:a9:59:4b:b6:2f", label: "match_phrase（精确意图）", inputId: "mac_cross_4a", mode: "match_phrase" },
     { group: "纯MAC 4a:a9:59:4b:b6:2f", label: "wildcard（包含）", inputId: "mac_cross_4a", mode: "wildcard" },
-    { group: "纯MAC 4a:a9:59:4b:b6:2f", label: "推荐组合", recommendedCaseId: "rec_structured_mac_cross", configRecommendedCaseId: "rec_config_mac_cross" },
+    {
+      group: "纯MAC 4a:a9:59:4b:b6:2f",
+      label: "结构化：match(mac/mac.mac)\n+ attributes.mac/description.mac\n配置：match(config.mac)\n+ config高亮/行号",
+      recommendedCaseId: "rec_structured_mac_cross",
+      configRecommendedCaseId: "rec_config_mac_cross",
+    },
     { group: "普通文本 allow-admin", label: "match_phrase", inputId: "text_allow_admin", mode: "match_phrase" },
     { group: "普通文本 allow-admin", label: "wildcard", inputId: "text_allow_admin", mode: "wildcard" },
     { group: "普通文本 allow-admin", label: "match+fuzziness", inputId: "text_allow_admin", mode: "match_fuzzy" },
-    { group: "普通文本 allow-admin", label: "推荐组合", recommendedCaseId: "rec_config_text_fuzzy" },
+    {
+      group: "普通文本 allow-admin",
+      label: "配置文本：match_phrase(config)\n+ match(config.ngram)\n+ wildcard(config.wild)",
+      recommendedCaseId: "rec_config_text_fuzzy",
+    },
     { group: "片段 10.10.10", label: "wildcard", inputId: "partial_ip", mode: "wildcard" },
     { group: "片段 4a:a9", label: "wildcard", inputId: "partial_mac", mode: "wildcard" },
     { group: "片段 59", label: "match", inputId: "partial_mac_octet_59", mode: "match" },
@@ -210,6 +224,7 @@ function writeCompactSheet(caseLookup) {
   ws.getRange(`A1:${endCol}1`).format.fill.color = "#1F4E5F";
   ws.getRange(`A1:${endCol}1`).format.font.color = "#FFFFFF";
   ws.getRange(`A2:${endCol}2`).format.fill.color = "#D9EAF7";
+  ws.getRange(`A2:${endCol}2`).format.rowHeightPx = 88;
   ws.getRange(`A1:${endCol}${values.length}`).format.wrapText = true;
   ws.getRange(`A1:${endCol}${values.length}`).format.verticalAlignment = "Top";
   [90, 280, 460, ...columns.map(() => 330)].forEach((width, idx) => {
