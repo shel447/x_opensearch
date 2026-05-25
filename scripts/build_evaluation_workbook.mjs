@@ -27,6 +27,15 @@ function asText(value) {
   return String(value);
 }
 
+function displayTerminology(value) {
+  return asText(value)
+    .replaceAll("误命中", "多命中")
+    .replaceAll("漏命中", "少命中")
+    .replaceAll("干扰命中", "多命中")
+    .replaceAll("干扰行", "多命中行")
+    .replaceAll("为什么是干扰", "为什么是多命中");
+}
+
 function writeSheet(name, headers, rows, widths = [], options = {}) {
   const ws = workbook.worksheets.add(name);
   const values = [headers, ...rows];
@@ -69,6 +78,22 @@ function shortLines(values, limit = 4) {
   return items.map((value) => String(value)).join("\n");
 }
 
+function uniqueLines(values) {
+  const seen = new Set();
+  const lines = [];
+  for (const value of values || []) {
+    const text = String(value ?? "").trimEnd();
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    lines.push(text);
+  }
+  return lines;
+}
+
+function normMac(value) {
+  return String(value || "").toLowerCase().replace(/[^0-9a-f]/g, "");
+}
+
 function sampleDataForField(field, limit = 5) {
   const rows = (matrix.test_data || []).filter((item) => item.field === field);
   const seen = new Set();
@@ -83,23 +108,21 @@ function sampleDataForField(field, limit = 5) {
   return shortLines(values, limit);
 }
 
-function hitDetailLines(details, intendedOnly) {
+function hitDetailLines(details, filter = null, withReason = false) {
   const lines = [];
   for (const detail of details || []) {
-    const include = intendedOnly ? detail.is_intended : !detail.is_intended;
-    if (!include) continue;
+    if (filter && !filter(detail)) continue;
     const matchedLines = detail.matched_lines || [];
     if (matchedLines.length) {
       for (const line of matchedLines) {
-        if (intendedOnly && line.is_intended === false) continue;
-        if (!intendedOnly && line.is_intended !== false) continue;
-        lines.push(`L${line.line}: ${line.text}`);
+        if (filter && !filter(detail, line)) continue;
+        lines.push(withReason ? detailContentLine(detail, line) : `L${line.line}: ${line.text}`);
       }
     } else if (detail.field_value) {
-      lines.push(detail.field_value);
+      lines.push(withReason ? detailContentLine(detail) : detail.field_value);
     }
   }
-  return lines;
+  return uniqueLines(lines);
 }
 
 function highlightLines(details) {
@@ -113,62 +136,120 @@ function highlightLines(details) {
 }
 
 function detailContentLine(detail, line = null) {
-  const reason = detail.interference_reason || line?.reason || "";
+  const reason = line?.reason || detail.interference_reason || "";
   const content = line ? `L${line.line}: ${line.text}` : detail.field_value;
   if (!content) return "";
   return reason ? `${content}\n  原因：${reason}` : content;
 }
 
-function interferenceExplanationLines(caseItem) {
+function fieldsForCase(caseItem) {
+  const fields = [];
+  for (const field of [caseItem.field, caseItem.source_field]) {
+    if (!field || field.startsWith("推荐组合")) continue;
+    fields.push(field);
+  }
+  return [...new Set(fields)];
+}
+
+function isRelevantTestData(row, caseItem) {
+  const value = String(row.stored_value || "");
+  if (!row.line_no) return true;
+  const query = String(caseItem.input_value || "");
+  const lowerValue = value.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  const queryMac = normMac(query);
+  const valueMac = normMac(value);
+  if (lowerQuery && lowerValue.includes(lowerQuery)) return true;
+  if (queryMac.length >= 4 && valueMac.includes(queryMac)) return true;
+  if (caseItem.input_type?.includes("MAC")) {
+    const octets = queryMac.match(/.{1,2}/g) || [];
+    return octets.some((octet) => octet.length === 2 && valueMac.includes(octet));
+  }
+  return false;
+}
+
+function testDataLinesForIds(caseItem, ids) {
+  const fields = fieldsForCase(caseItem);
   const lines = [];
-  for (const detail of caseItem.interference_hit_details || []) {
-    const matchedLines = detail.matched_lines || [];
-    if (matchedLines.length) {
-      for (const line of matchedLines) {
-        const content = detailContentLine(detail, line);
-        if (content) lines.push(content);
-      }
-    } else {
-      const content = detailContentLine(detail);
-      if (content) lines.push(content);
+  for (const docId of ids || []) {
+    let rows = (matrix.test_data || []).filter((row) => row.index === caseItem.index && row.doc_id === docId && fields.includes(row.field));
+    if (!rows.length && caseItem.source_field) {
+      rows = (matrix.test_data || []).filter((row) => row.index === caseItem.index && row.doc_id === docId && row.source_field === caseItem.source_field);
+    }
+    if (!rows.length) {
+      rows = (matrix.test_data || []).filter((row) => row.index === caseItem.index && row.doc_id === docId);
+    }
+    const relevantRows = rows.filter((row) => isRelevantTestData(row, caseItem));
+    for (const row of relevantRows.length ? relevantRows : rows) {
+      const prefix = row.line_no ? `L${row.line_no}: ` : "";
+      lines.push(`${prefix}${row.stored_value}`);
     }
   }
-  return lines;
+  return uniqueLines(lines);
+}
+
+function expectedLines(caseItem) {
+  return testDataLinesForIds(caseItem, caseItem.expected_ids || []);
+}
+
+function actualLines(caseItem) {
+  return hitDetailLines(caseItem.hit_details || []);
+}
+
+function missingLines(caseItem) {
+  return testDataLinesForIds(caseItem, caseItem.missing_ids || []);
+}
+
+function extraLines(caseItem) {
+  const details = (caseItem.interference_hit_details || []).length
+    ? caseItem.interference_hit_details
+    : (caseItem.hit_details || []).filter((detail) => detail.is_intended === false);
+  return hitDetailLines(details, null, true);
 }
 
 function compactExplanation(caseItem) {
-  const explanations = [];
-  const interference = interferenceExplanationLines(caseItem);
-  if (interference.length) {
-    explanations.push(["误命中说明：", shortLines(interference)].join("\n"));
+  const parts = [];
+  if ((caseItem.missing_ids || []).length) parts.push("存在少命中，详见少命中具体内容");
+  if ((caseItem.unexpected_ids || []).length || (caseItem.interference_hit_details || []).length) {
+    parts.push("存在多命中，详见多命中具体内容");
   }
-  if ((caseItem.missing_ids || []).length) {
-    explanations.push(`漏命中：${caseItem.missing_ids.join(", ")}`);
+  if ((caseItem.actual_ids || []).length && !caseItem.has_highlight) parts.push("有命中但无高亮");
+  if (caseItem.line_required && (caseItem.line_hits || []).length === 0 && (caseItem.actual_ids || []).length) {
+    parts.push("实际命中缺少行号证据");
   }
-  if (!explanations.length) return caseItem.verdict;
-  return explanations.join("\n");
+  return parts.length ? parts.join("；") : displayTerminology(caseItem.verdict);
 }
 
 function compactCell(caseItem) {
   if (!caseItem) return "不适用\n说明：没有对应实测 case";
   if (caseItem.error) {
     return [
-      "本意命中：无",
-      "干扰命中：无",
+      "预期命中：无",
+      "实际命中：无",
+      "少命中：无",
+      "多命中：无",
       "高亮片段：无",
       `结论：${caseItem.recommendation}`,
-      `说明：${caseItem.verdict}`,
+      `说明：${displayTerminology(caseItem.verdict)}`,
     ].join("\n");
   }
-  const intended = hitDetailLines(caseItem.hit_details || [], true);
-  const interference = hitDetailLines(caseItem.hit_details || [], false);
+  const expected = expectedLines(caseItem);
+  const actual = actualLines(caseItem);
+  const missing = missingLines(caseItem);
+  const extra = extraLines(caseItem);
   const highlights = highlightLines(caseItem.hit_details || []);
   return [
-    "本意命中：",
-    shortLines(intended, 4) || "无",
+    "预期命中：",
+    shortLines(expected) || "无",
     "",
-    "干扰命中：",
-    shortLines(interference, 4) || "无",
+    "实际命中：",
+    shortLines(actual) || "无",
+    "",
+    "少命中：",
+    shortLines(missing) || "无",
+    "",
+    "多命中：",
+    shortLines(extra) || "无",
     "",
     "高亮片段：",
     shortLines(highlights, 3) || "无高亮",
@@ -199,6 +280,16 @@ function recommendationCaseFor(fieldSpec, column) {
     return cases.find((item) => item.case_id === column.recommendedCaseId);
   }
   return null;
+}
+
+function compactGroupColors(group) {
+  if (group.startsWith("纯IP")) return { dark: "#1F4E5F", light: "#D9EAF7", text: "#FFFFFF" };
+  if (group.startsWith("IPv6")) return { dark: "#385723", light: "#E2F0D9", text: "#FFFFFF" };
+  if (group.startsWith("前导0")) return { dark: "#7F6000", light: "#FFF2CC", text: "#FFFFFF" };
+  if (group.startsWith("纯MAC")) return { dark: "#7030A0", light: "#EADCF8", text: "#FFFFFF" };
+  if (group.startsWith("普通文本")) return { dark: "#9E480E", light: "#FCE4D6", text: "#FFFFFF" };
+  if (group.startsWith("片段")) return { dark: "#7F1D1D", light: "#F4CCCC", text: "#FFFFFF" };
+  return { dark: "#1F4E5F", light: "#D9EAF7", text: "#FFFFFF" };
 }
 
 function writeCompactSheet(caseLookup) {
@@ -258,9 +349,9 @@ function writeCompactSheet(caseLookup) {
   ws.freezePanes.freezeRows(2);
   ws.freezePanes.freezeColumns(3);
   ws.getRange(`A1:${endCol}2`).format.font.bold = true;
-  ws.getRange(`A1:${endCol}1`).format.fill.color = "#1F4E5F";
-  ws.getRange(`A1:${endCol}1`).format.font.color = "#FFFFFF";
-  ws.getRange(`A2:${endCol}2`).format.fill.color = "#D9EAF7";
+  ws.getRange("A1:C1").format.fill.color = "#1F4E5F";
+  ws.getRange("A1:C1").format.font.color = "#FFFFFF";
+  ws.getRange("A2:C2").format.fill.color = "#D9EAF7";
   ws.getRange(`A2:${endCol}2`).format.rowHeightPx = 88;
   ws.getRange(`A1:${endCol}${values.length}`).format.wrapText = true;
   ws.getRange(`A1:${endCol}${values.length}`).format.verticalAlignment = "Top";
@@ -270,8 +361,15 @@ function writeCompactSheet(caseLookup) {
   for (let i = 0; i < columns.length;) {
     let j = i + 1;
     while (j < columns.length && columns[j].group === columns[i].group) j++;
+    const startCol = colName(4 + i);
+    const endGroupCol = colName(4 + j - 1);
+    const colors = compactGroupColors(columns[i].group);
+    ws.getRange(`${startCol}1:${endGroupCol}1`).format.fill.color = colors.dark;
+    ws.getRange(`${startCol}1:${endGroupCol}1`).format.font.color = colors.text;
+    ws.getRange(`${startCol}2:${endGroupCol}2`).format.fill.color = colors.light;
+    ws.getRange(`${startCol}2:${endGroupCol}2`).format.font.color = "#1F1F1F";
     if (j - i > 1) {
-      ws.mergeCells(`${colName(4 + i)}1:${colName(4 + j - 1)}1`);
+      ws.mergeCells(`${startCol}1:${endGroupCol}1`);
     }
     i = j;
   }
@@ -354,14 +452,14 @@ const detailRows = cases.map((item) => [
   asText(item.line_hits),
   item.status,
   item.recommendation,
-  item.verdict,
+  displayTerminology(item.verdict),
   item.error ? asText(item.error) : "",
-  asText(item.hit_details || []),
-  asText(item.interference_hit_details || []),
+  displayTerminology(item.hit_details || []),
+  displayTerminology(item.interference_hit_details || []),
 ]);
 const detailSheet = writeSheet(
   "03_交叉验证明细",
-  ["case_id", "索引", "字段", "字段类型", "存储形态", "测试输入", "输入类型", "搜索模式", "DSL摘要", "预期命中", "实际命中", "误命中", "漏命中", "是否高亮", "高亮文档", "行号证据", "HTTP状态", "推荐等级", "验证结论", "错误/不适用原因", "命中具体数据", "干扰命中具体数据"],
+  ["case_id", "索引", "字段", "字段类型", "存储形态", "测试输入", "输入类型", "搜索模式", "DSL摘要", "预期命中", "实际命中", "多命中", "少命中", "是否高亮", "高亮文档", "行号证据", "HTTP状态", "推荐等级", "验证结论", "错误/不适用原因", "命中具体数据", "多命中具体数据"],
   detailRows,
   [280, 170, 190, 95, 280, 150, 130, 130, 260, 160, 160, 160, 160, 90, 150, 520, 90, 120, 520, 620, 620, 620],
   { headerColor: "#17365D" },
@@ -385,9 +483,9 @@ writeSheet(
 );
 
 const limitationRows = (matrix.limitations || []).map((item) => [
-  item.scenario,
-  item.limitation,
-  item.suggestion,
+  displayTerminology(item.scenario),
+  displayTerminology(item.limitation),
+  displayTerminology(item.suggestion),
 ]);
 writeSheet(
   "05_限制与反例",
@@ -431,7 +529,7 @@ for (const item of cases) {
           item.input_value,
           item.search_mode,
           `L${line.line}: ${line.text}`,
-          detail.interference_reason || line.reason || item.verdict,
+          displayTerminology(detail.interference_reason || line.reason || item.verdict),
           item.recommendation,
           "优先使用 IP/MAC 专用字段或推荐组合；片段搜索必须明确标识为模糊模式",
         ]);
@@ -443,7 +541,7 @@ for (const item of cases) {
         item.input_value,
         item.search_mode,
         detail.field_value || "",
-        detail.interference_reason || item.verdict,
+        displayTerminology(detail.interference_reason || item.verdict),
         item.recommendation,
         "优先使用 IP/MAC 专用字段或推荐组合；片段搜索必须明确标识为模糊模式",
       ]);
@@ -451,13 +549,37 @@ for (const item of cases) {
   }
 }
 const interferenceSheet = writeSheet(
-  "08_干扰样例分析",
-  ["case_id", "字段", "搜索输入", "搜索模式", "实际干扰命中数据", "为什么是干扰", "推荐等级", "规避建议"],
+  "08_多命中样例分析",
+  ["case_id", "字段", "搜索输入", "搜索模式", "实际多命中数据", "为什么是多命中", "推荐等级", "规避建议"],
   interferenceRows,
   [280, 180, 150, 130, 620, 420, 120, 520],
   { headerColor: "#7F1D1D" },
 );
 colorRecommendationRows(interferenceSheet, interferenceRows, 6);
+
+const hitDiffRows = cases.map((item) => [
+  item.case_id,
+  item.index,
+  item.field,
+  item.field_type,
+  item.input_value,
+  item.input_type,
+  item.search_mode,
+  item.recommendation,
+  displayTerminology(item.verdict),
+  shortLines(expectedLines(item)) || "无",
+  shortLines(actualLines(item)) || "无",
+  shortLines(missingLines(item)) || "无",
+  shortLines(extraLines(item)) || "无",
+]);
+const hitDiffSheet = writeSheet(
+  "09_命中差异明细",
+  ["case_id", "索引", "字段", "字段类型", "测试输入", "输入类型", "搜索模式", "推荐等级", "验证结论", "预期命中具体内容", "实际命中具体内容", "少命中具体内容", "多命中具体内容"],
+  hitDiffRows,
+  [280, 170, 190, 95, 150, 130, 130, 120, 520, 620, 620, 620, 620],
+  { headerColor: "#375623" },
+);
+colorRecommendationRows(hitDiffSheet, hitDiffRows, 7);
 
 const errors = await workbook.inspect({
   kind: "match",
@@ -476,7 +598,8 @@ for (const sheetName of [
   "05_限制与反例",
   "06_透视汇总",
   "07_紧凑交叉对比",
-  "08_干扰样例分析",
+  "08_多命中样例分析",
+  "09_命中差异明细",
 ]) {
   await workbook.render({ sheetName, range: "A1:K20", scale: 1 });
 }
