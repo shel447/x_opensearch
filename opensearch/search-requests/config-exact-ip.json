@@ -1,0 +1,16 @@
+{
+  "size": 10,
+  "query": {
+    "match_phrase": {
+      "config": "10.10.10.1"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "config": {
+        "type": "unified",
+        "number_of_fragments": 5
+      }
+    }
+  }
+}

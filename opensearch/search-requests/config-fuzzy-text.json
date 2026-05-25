@@ -1,0 +1,21 @@
+{
+  "size": 10,
+  "query": {
+    "bool": {
+      "should": [
+        { "match_phrase": { "config": "allow-admin" } },
+        { "match": { "config.ngram": "allow-admin" } },
+        { "wildcard": { "config.wild": { "value": "*allow-admin*", "case_insensitive": true } } }
+      ],
+      "minimum_should_match": 1
+    }
+  },
+  "highlight": {
+    "fields": {
+      "config": {
+        "type": "unified",
+        "number_of_fragments": 5
+      }
+    }
+  }
+}

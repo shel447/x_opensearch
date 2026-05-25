@@ -1,0 +1,21 @@
+{
+  "size": 10,
+  "query": {
+    "match": {
+      "config.mac": "4a:a9:59:4b:b6:2f"
+    }
+  },
+  "highlight": {
+    "require_field_match": false,
+    "fields": {
+      "config": {
+        "type": "unified",
+        "number_of_fragments": 5
+      },
+      "config.mac": {
+        "type": "unified",
+        "number_of_fragments": 5
+      }
+    }
+  }
+}

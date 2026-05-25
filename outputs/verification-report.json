@@ -1,0 +1,225 @@
+{
+  "opensearch": {
+    "url": "http://localhost:9200",
+    "version": "2.19.3",
+    "build_hash": "a90f864b8524bc75570a8461ccb569d2a4bfed42",
+    "lucene_version": "9.12.2"
+  },
+  "checks": [
+    {
+      "case": "rec_structured_ipv4_exact",
+      "ids": [
+        "dev-001",
+        "dev-007"
+      ],
+      "expected_ids": [
+        "dev-001"
+      ],
+      "unexpected_ids": [
+        "dev-007"
+      ],
+      "missing_ids": [],
+      "highlight": true,
+      "line_hits": {},
+      "interference_hit_details": [
+        {
+          "doc_id": "dev-007",
+          "field_value": "110.10.10.1",
+          "matched_lines": [],
+          "highlight_fragments": [
+            "Boundary sample: 110.10.10.1 and 10.10.10.100 should not satisfy exact <em>10.10.10.1</em> intent."
+          ],
+          "is_intended": false,
+          "interference_reason": "命中值包含 IP 字符串片段，但不符合精确 IP 边界"
+        }
+      ],
+      "verdict": "误命中 dev-007；存在干扰命中 dev-007",
+      "recommendation": "不推荐"
+    },
+    {
+      "case": "rec_structured_mac_cross",
+      "ids": [
+        "dev-001",
+        "dev-003",
+        "dev-006"
+      ],
+      "expected_ids": [
+        "dev-001",
+        "dev-003"
+      ],
+      "unexpected_ids": [
+        "dev-006"
+      ],
+      "missing_ids": [],
+      "highlight": true,
+      "line_hits": {},
+      "interference_hit_details": [
+        {
+          "doc_id": "dev-006",
+          "field_value": "12:34:56:78:90:ab",
+          "matched_lines": [],
+          "highlight_fragments": [
+            "event_time=2026-05-23 12:59:06 interface=Ethernet1/0/59 vlan=59 firmware=4.9.59 build=06 serial=<em>4aa9594bb62f</em>"
+          ],
+          "is_intended": false,
+          "interference_reason": "命中值包含 MAC 片段或 12 位 hex，但不是明确 MAC 语义"
+        }
+      ],
+      "verdict": "误命中 dev-006；存在干扰命中 dev-006",
+      "recommendation": "不推荐"
+    },
+    {
+      "case": "rec_config_ipv4_exact",
+      "ids": [
+        "cfg-001",
+        "cfg-003"
+      ],
+      "expected_ids": [
+        "cfg-001",
+        "cfg-003"
+      ],
+      "unexpected_ids": [],
+      "missing_ids": [],
+      "highlight": true,
+      "line_hits": {
+        "cfg-001": [
+          {
+            "line": 3,
+            "text": " ip address 10.10.10.1 255.255.255.0"
+          }
+        ],
+        "cfg-003": [
+          {
+            "line": 4,
+            "text": "set rulebase security rules allow-admin source 10.10.10.1"
+          }
+        ]
+      },
+      "interference_hit_details": [],
+      "verdict": "推荐组合满足预期，命中/排除/高亮/行号均符合要求",
+      "recommendation": "推荐"
+    },
+    {
+      "case": "rec_config_mac_cross",
+      "ids": [
+        "cfg-001",
+        "cfg-003",
+        "cfg-005"
+      ],
+      "expected_ids": [
+        "cfg-001",
+        "cfg-003"
+      ],
+      "unexpected_ids": [
+        "cfg-005"
+      ],
+      "missing_ids": [],
+      "highlight": true,
+      "line_hits": {
+        "cfg-001": [
+          {
+            "line": 4,
+            "text": " mac-address 4a-a9-59-4b-b6-2f"
+          }
+        ],
+        "cfg-003": [
+          {
+            "line": 3,
+            "text": "set interface ethernet1/1 mac 4aa9.594b.b62f"
+          }
+        ],
+        "cfg-005": [
+          {
+            "line": 6,
+            "text": " serial-number 4aa9594bb62f"
+          }
+        ]
+      },
+      "interference_hit_details": [
+        {
+          "doc_id": "cfg-005",
+          "field_value": "",
+          "matched_lines": [
+            {
+              "line": 1,
+              "text": "hostname sw-noise-time-59",
+              "is_intended": false,
+              "reason": "仅 MAC 片段重合: 59"
+            },
+            {
+              "line": 2,
+              "text": "clock set 2026-05-23 12:59:06",
+              "is_intended": false,
+              "reason": "仅 MAC 片段重合: 59"
+            },
+            {
+              "line": 3,
+              "text": "interface Ethernet1/0/59",
+              "is_intended": false,
+              "reason": "仅 MAC 片段重合: 59"
+            },
+            {
+              "line": 4,
+              "text": " switchport access vlan 59",
+              "is_intended": false,
+              "reason": "仅 MAC 片段重合: 59"
+            },
+            {
+              "line": 5,
+              "text": " firmware version 4.9.59 build 06",
+              "is_intended": false,
+              "reason": "仅 MAC 片段重合: 59"
+            },
+            {
+              "line": 6,
+              "text": " serial-number 4aa9594bb62f",
+              "is_intended": false,
+              "reason": "完整 12 位 hex 出现但缺少 MAC 语义上下文"
+            },
+            {
+              "line": 7,
+              "text": " trace-id 4aa959",
+              "is_intended": false,
+              "reason": "仅 MAC 片段重合: 4a,59,a9"
+            }
+          ],
+          "highlight_fragments": [
+            "interface Ethernet1/0/59\n switchport access vlan 59\n firmware version 4.9.59 build 06\n serial-number <em>4aa9594bb62f</em>",
+            "interface Ethernet1/0/59\n switchport access vlan 59\n firmware version 4.9.59 build 06\n serial-number <em>4aa9594bb62f</em>"
+          ],
+          "is_intended": false,
+          "interference_reason": "命中文档不在按搜索本意计算的预期集合中"
+        }
+      ],
+      "verdict": "误命中 cfg-005；存在干扰命中 cfg-005",
+      "recommendation": "不推荐"
+    },
+    {
+      "case": "rec_config_text_fuzzy",
+      "ids": [
+        "cfg-003"
+      ],
+      "expected_ids": [
+        "cfg-003"
+      ],
+      "unexpected_ids": [],
+      "missing_ids": [],
+      "highlight": true,
+      "line_hits": {
+        "cfg-003": [
+          {
+            "line": 4,
+            "text": "set rulebase security rules allow-admin source 10.10.10.1"
+          },
+          {
+            "line": 5,
+            "text": "set rulebase security rules allow-admin log-start yes"
+          }
+        ]
+      },
+      "interference_hit_details": [],
+      "verdict": "推荐组合满足预期，命中/排除/高亮/行号均符合要求",
+      "recommendation": "推荐"
+    }
+  ]
+}

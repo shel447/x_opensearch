@@ -1,0 +1,23 @@
+{
+  "size": 10,
+  "query": {
+    "bool": {
+      "should": [
+        { "term": { "ip_address": "10.10.10.1" } },
+        { "term": { "ip_keyword": "10.10.10.1" } },
+        { "match_phrase": { "ip_keyword.text": "10.10.10.1" } },
+        { "match_phrase": { "attributes.text": "10.10.10.1" } },
+        { "match_phrase": { "description": "10.10.10.1" } }
+      ],
+      "minimum_should_match": 1
+    }
+  },
+  "highlight": {
+    "require_field_match": false,
+    "fields": {
+      "ip_keyword": { "type": "unified", "force_source": true },
+      "attributes.text": { "type": "unified", "force_source": true },
+      "description": { "type": "unified" }
+    }
+  }
+}

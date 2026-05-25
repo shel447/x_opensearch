@@ -1,0 +1,29 @@
+.DS_Store
+Thumbs.db
+
+# Dependencies and local environments
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+.cache/
+.pytest_cache/
+
+# Editor and OS metadata
+.idea/
+.vscode/
+
+# Runtime data and secrets
+docker/**/data/
+opensearch-data/
+*.pem
+*.key
+*.crt
+.env
+.env.*

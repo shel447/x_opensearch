@@ -1,0 +1,22 @@
+{
+  "size": 10,
+  "query": {
+    "bool": {
+      "should": [
+        { "match": { "name.ngram": "gateway" } },
+        { "match": { "description.ngram": "gateway" } },
+        { "wildcard": { "attributes.wild": { "value": "*gateway*", "case_insensitive": true } } },
+        { "wildcard": { "description.wild": { "value": "*gateway*", "case_insensitive": true } } }
+      ],
+      "minimum_should_match": 1
+    }
+  },
+  "highlight": {
+    "require_field_match": false,
+    "fields": {
+      "name": { "type": "unified" },
+      "description": { "type": "unified" },
+      "attributes.text": { "type": "unified", "force_source": true }
+    }
+  }
+}

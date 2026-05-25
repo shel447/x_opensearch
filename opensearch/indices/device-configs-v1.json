@@ -1,0 +1,84 @@
+{
+  "settings": {
+    "index": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "max_ngram_diff": 30
+    },
+    "analysis": {
+      "char_filter": {
+        "mac_separator_strip": {
+          "type": "pattern_replace",
+          "pattern": "(?i)(?<=[0-9a-f])[:.-](?=[0-9a-f])",
+          "replacement": ""
+        }
+      },
+      "tokenizer": {
+        "net_tokenizer": {
+          "type": "pattern",
+          "pattern": "[^A-Za-z0-9_.:-]+"
+        }
+      },
+      "filter": {
+        "net_ngram_filter": {
+          "type": "ngram",
+          "min_gram": 2,
+          "max_gram": 32,
+          "preserve_original": true
+        }
+      },
+      "analyzer": {
+        "net_text": {
+          "type": "custom",
+          "tokenizer": "net_tokenizer",
+          "filter": ["lowercase"]
+        },
+        "mac_flat": {
+          "type": "custom",
+          "char_filter": ["mac_separator_strip"],
+          "tokenizer": "net_tokenizer",
+          "filter": ["lowercase"]
+        },
+        "net_ngram": {
+          "type": "custom",
+          "tokenizer": "net_tokenizer",
+          "filter": ["lowercase", "net_ngram_filter"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "config_id": {
+        "type": "keyword"
+      },
+      "device_id": {
+        "type": "keyword"
+      },
+      "collected_at": {
+        "type": "date"
+      },
+      "config": {
+        "type": "text",
+        "analyzer": "net_text",
+        "term_vector": "with_positions_offsets",
+        "fields": {
+          "mac": {
+            "type": "text",
+            "analyzer": "mac_flat",
+            "term_vector": "with_positions_offsets"
+          },
+          "wild": {
+            "type": "wildcard"
+          },
+          "ngram": {
+            "type": "text",
+            "analyzer": "net_ngram",
+            "search_analyzer": "net_text"
+          }
+        }
+      }
+    }
+  }
+}

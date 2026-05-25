@@ -1,0 +1,22 @@
+{
+  "size": 10,
+  "query": {
+    "bool": {
+      "should": [
+        { "match": { "mac": "4a:a9:59:4b:b6:2f" } },
+        { "match": { "mac.mac": "4a:a9:59:4b:b6:2f" } },
+        { "match": { "attributes.mac": "4a:a9:59:4b:b6:2f" } },
+        { "match": { "description.mac": "4a:a9:59:4b:b6:2f" } }
+      ],
+      "minimum_should_match": 1
+    }
+  },
+  "highlight": {
+    "require_field_match": false,
+    "fields": {
+      "mac": { "type": "unified", "force_source": true },
+      "attributes.mac": { "type": "unified", "force_source": true },
+      "description": { "type": "unified" }
+    }
+  }
+}
