@@ -66,9 +66,7 @@ function colorRecommendationRows(ws, rows, recommendationColIndex, startRow = 2)
 
 function shortLines(values, limit = 4) {
   const items = values.filter((value) => value !== null && value !== undefined && String(value).trim() !== "");
-  const shown = items.slice(0, limit).map((value) => String(value));
-  if (items.length > limit) shown.push(`...另 ${items.length - limit} 条`);
-  return shown.join("\n");
+  return items.map((value) => String(value)).join("\n");
 }
 
 function sampleDataForField(field, limit = 5) {

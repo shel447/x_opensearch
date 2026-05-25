@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-23T04:24:47Z",
+  "generated_at": "2026-05-25T02:28:30Z",
   "opensearch": {
     "url": "http://localhost:9200",
     "version": "2.19.3",
@@ -140995,5 +140995,5 @@
       "suggestion": "详见 03_交叉验证明细 的实际命中、误命中、漏命中和 DSL"
     }
   ],
-  "duration_seconds": 2.593
+  "duration_seconds": 2.477
 }
