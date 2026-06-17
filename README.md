@@ -53,3 +53,4 @@ bash scripts/build_evaluation_workbook.sh
 - `outputs/opensearch-search-evaluation-2.19.3.xlsx`: 多维度 Excel 评估表，包含紧凑交叉对比和干扰样例分析 sheet。
 - `docs/search-solution.md`: 本业务搜索方案说明。
 - `docs/opensearch-index-search-manual.md`: OpenSearch 索引配置与搜索能力说明书。
+- `docs/business-search-api-design.md`: 封装后的业务搜索 REST 接口设计文档。
